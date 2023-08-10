@@ -21,7 +21,9 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org");
 const int sensorLDR = A0;
 const int led = D1;
 int limite = 500;
-bool encendido = true;
+bool encendido = false;
+bool sensor = true;
+int potenciaLed = 0;
 
 //AWS_endpoint, MQTT broker ip
 const char * AWS_endpoint = "abfc4wygs0zfl-ats.iot.us-east-1.amazonaws.com";
@@ -35,10 +37,8 @@ void callback(char * topic, byte * payload, unsigned int length) {
     Serial.print((char) payload[i]);
   }
   Serial.println();
-  
   int valor = atoi((char*) payload);
   Serial.print("El sensor esta ");
-
   if(valor == 1){
     encendido = true;
     Serial.print("encendido: ");
@@ -49,7 +49,11 @@ void callback(char * topic, byte * payload, unsigned int length) {
     Serial.print("apagado: ");
     Serial.print(valor);
       }
-  
+  else{
+    potenciaLed = valor;
+    sensor = false;
+    Serial.print("siendo controlado con potenciador");
+    }
 }
 
 //CONECCION AL WIFI
@@ -161,7 +165,7 @@ void setup(){
 }
 
 unsigned long before = 0;
-unsigned long intervalo = 10000;
+unsigned long intervalo = 5000;
 
 void loop(){
   if (!client.connected()) {
@@ -171,33 +175,33 @@ void loop(){
   //LECTURA DL SENSOR
   int rawData = analogRead(sensorLDR);
   client.loop();
-
+  delay(1000);
   //IMPRESION DEL SENSOR EN EL MONITOR
   Serial.println(rawData);
-
-  //DEPENDIENDO DEL VALOR QUE SE RECIBE EN CALLBACK SE VERA SI EL CODIGO FUNCIONA O NO
-  if(encendido){
-    
+  
+  //EL FOCO PRENDE DEPENDIENDO DE SI SE ENVIA POR EL POTENCIADOR
+  if(sensor){
+    if(encendido){
     //EL FOCO PRENDE DEPENDIENDO DEL VALOR DEL SENSOR
-    if(rawData > 700){
-      analogWrite(led, 0);
-    }
-    else if(rawData >= 500 && rawData <= 700){
-      analogWrite(led, 25);
+      if(rawData > 700){
+        analogWrite(led, 0);
       }
-    else if(rawData >=300 && rawData < 500){
-      analogWrite(led, 50);    
-      } 
+      else if(rawData >= 300 && rawData <= 700){
+        analogWrite(led, 25);
+        }
+      else {
+        analogWrite(led, 100);
+        }
+      }
     else {
-      analogWrite(led, 100);
+      analogWrite(led, 0);
       }
-    }
-  else {
-    analogWrite(led, 0);
-    }
-    
-  delay(1000);
-
+  }else {
+      analogWrite(led, potenciaLed);
+   }
+  
+  //DEPENDIENDO DEL VALOR QUE SE RECIBE EN CALLBACK SE VERA SI EL CODIGO FUNCIONA O NO
+  
   //MENSAJE
   char mensaje[50] = "";
   char valorSensor[4];
